@@ -17,6 +17,7 @@
       position: relative;
       overflow: hidden;
     }
+
     #game-board {
       display: none;
       grid-template-columns: repeat(3, 100px);
@@ -25,6 +26,7 @@
       margin-top: 20px;
       display: grid;
     }
+
     .cell {
       background-color: black;
       border: 2px solid #00f;
@@ -36,24 +38,26 @@
       cursor: pointer;
       user-select: none;
     }
+
     #start-btn,
-    #restart-btn {
+    #restart-btn,
+    #music-toggle {
       padding: 15px 30px;
-      font-size: 24px;
+      font-size: 20px;
       background-color: #00f;
       color: white;
       border: none;
       border-radius: 10px;
       cursor: pointer;
-      margin-top: 20px;
+      margin-top: 15px;
     }
+
     #status {
       margin-top: 20px;
       font-size: 20px;
       height: 24px;
     }
 
-    /* Confetti styles */
     .confetti {
       position: fixed;
       width: 10px;
@@ -66,37 +70,46 @@
       animation-timing-function: linear, linear;
       animation-iteration-count: infinite, infinite;
     }
+
     @keyframes fall {
-      0% {
-        transform: translateY(0);
-        opacity: 1;
-      }
-      100% {
-        transform: translateY(100vh);
-        opacity: 0;
-      }
+      0% { transform: translateY(0); opacity: 1; }
+      100% { transform: translateY(100vh); opacity: 0; }
     }
+
     @keyframes spin {
-      0% {
-        transform: rotate(0deg);
-      }
-      100% {
-        transform: rotate(360deg);
-      }
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
   </style>
 </head>
 <body>
   <button id="start-btn">Start Game</button>
+  <button id="music-toggle">🔈 Toggle Music</button>
 
   <div id="game-board" class="game-board"></div>
-
   <div id="status"></div>
+
+  <!-- Ad Integration -->
+  <div id="side-ad" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);">
+    <script type="text/javascript">
+      atOptions = {
+        'key': 'b945673609af314904809560b852ea78',
+        'format': 'iframe',
+        'height': 600,
+        'width': 160,
+        'params': {}
+      };
+    </script>
+    <script type="text/javascript" src="//www.highperformanceformat.com/b945673609af314904809560b852ea78/invoke.js"></script>
+  </div>
 
   <button id="restart-btn" style="display:none;">Restart Game</button>
 
-  <!-- Sound -->
+  <!-- Sound Effects -->
   <audio id="yee-sound" src="https://actions.google.com/sounds/v1/celebration/woohoo.ogg"></audio>
+
+  <!-- Background Music -->
+  <audio id="bg-music" src="https://jmp.sh/s/zQjCI8qek4jEKuQMNvzP" loop></audio>
 
   <script>
     const startBtn = document.getElementById('start-btn');
@@ -104,6 +117,8 @@
     const statusText = document.getElementById('status');
     const restartBtn = document.getElementById('restart-btn');
     const yeeSound = document.getElementById('yee-sound');
+    const bgMusic = document.getElementById('bg-music');
+    const musicToggle = document.getElementById('music-toggle');
 
     let currentPlayer;
     let gameActive;
@@ -115,46 +130,35 @@
         const confetti = document.createElement('div');
         confetti.classList.add('confetti');
         confetti.style.left = Math.random() * 100 + 'vw';
-        confetti.style.backgroundColor =
-          confettiColors[Math.floor(Math.random() * confettiColors.length)];
+        confetti.style.backgroundColor = confettiColors[Math.floor(Math.random() * confettiColors.length)];
         confetti.style.animationDuration = 2 + Math.random() * 3 + 's';
         confetti.style.animationDelay = Math.random() * 2 + 's';
         const size = 5 + Math.random() * 5;
         confetti.style.width = size + 'px';
         confetti.style.height = size + 'px';
         document.body.appendChild(confetti);
-
-        setTimeout(() => {
-          confetti.remove();
-        }, 5000);
+        setTimeout(() => confetti.remove(), 5000);
       }
     }
 
     function checkWin() {
       const winPatterns = [
-        [0, 1, 2],
-        [3, 4, 5],
-        [6, 7, 8],
-        [0, 3, 6],
-        [1, 4, 7],
-        [2, 5, 8],
-        [0, 4, 8],
-        [2, 4, 6],
+        [0,1,2],[3,4,5],[6,7,8],
+        [0,3,6],[1,4,7],[2,5,8],
+        [0,4,8],[2,4,6],
       ];
       for (let pattern of winPatterns) {
-        const [a, b, c] = pattern;
-        if (
-          cells[a].textContent &&
-          cells[a].textContent === cells[b].textContent &&
-          cells[b].textContent === cells[c].textContent
-        ) {
+        const [a,b,c] = pattern;
+        if (cells[a].textContent &&
+            cells[a].textContent === cells[b].textContent &&
+            cells[b].textContent === cells[c].textContent) {
           gameActive = false;
           statusText.textContent = `${cells[a].textContent} wins!`;
           celebration();
           return;
         }
       }
-      if ([...cells].every((cell) => cell.textContent)) {
+      if ([...cells].every(cell => cell.textContent)) {
         gameActive = false;
         statusText.textContent = `It's a draw!`;
         restartBtn.style.display = 'inline-block';
@@ -180,8 +184,8 @@
     }
 
     function startGame() {
-      currentPlayer = 'X';  // Reset current player on start
-      gameActive = true;    // Reset game active flag
+      currentPlayer = 'X';
+      gameActive = true;
       startBtn.style.display = 'none';
       restartBtn.style.display = 'none';
       board.style.display = 'grid';
@@ -196,11 +200,23 @@
         cells[i] = cell;
         board.appendChild(cell);
       }
+
+      // Start music on user interaction
+      bgMusic.play().catch(() => {});
     }
 
     startBtn.onclick = startGame;
-    restartBtn.onclick = () => {
-      startGame();
+    restartBtn.onclick = startGame;
+
+    // Music toggle
+    musicToggle.onclick = () => {
+      if (bgMusic.paused) {
+        bgMusic.play();
+        musicToggle.textContent = '🔈 Music On';
+      } else {
+        bgMusic.pause();
+        musicToggle.textContent = '🔇 Music Off';
+      }
     };
   </script>
 </body>
