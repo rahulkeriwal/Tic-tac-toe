@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tic Tac Toe</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #000;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+    #game-board {
+      display: none;
+      grid-template-columns: repeat(3, 100px);
+      grid-template-rows: repeat(3, 100px);
+      gap: 5px;
+      margin-top: 20px;
+    }
+    .cell {
+      background-color: black;
+      border: 2px solid #00f;
+      font-size: 60px;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    #start-btn,
+    #restart-btn,
+    #home-btn,
+    #settings-btn,
+    #friends-btn,
+    #computer-btn {
+      padding: 15px 30px;
+      font-size: 24px;
+      background-color: #00f;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    #status {
+      margin-top: 20px;
+      font-size: 20px;
+      height: 24px;
+    }
+    #settings-panel,
+    #mode-panel {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: #111;
+      padding: 20px;
+      border: 2px solid #00f;
+      border-radius: 10px;
+      color: white;
+      text-align: center;
+    }
+    #settings-panel h3,
+    #mode-panel h3 {
+      margin: 0 0 15px;
+    }
+    #settings-panel label {
+      display: block;
+      margin: 10px 0;
+      font-size: 18px;
+    }
+    #settings-panel input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      margin-right: 10px;
+      vertical-align: middle;
+    }
+    #settings-panel input[type="range"] {
+      width: 200px;
+    }
+    #settings-panel button,
+    #mode-panel button {
+      padding: 10px 20px;
+      font-size: 18px;
+      background-color: #00f;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 10px;
+    }
+
+    /* Confetti styles */
+    .confetti {
+      position: fixed;
+      width: 10px;
+      height: 10px;
+      background-color: #00f;
+      opacity: 0.7;
+      top: 0;
+      pointer-events: none;
+      animation-name: fall, spin;
+      animation-timing-function: linear, linear;
+      animation-iteration-count: infinite, infinite;
+    }
+    @keyframes fall {
+      0% {
+        transform: translateY(0);
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(100vh);
+        opacity: 0;
+      }
+    }
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+<body>
+  <button id="start-btn">Start Game</button>
+  <button id="settings-btn">Settings</button>
+
+  <div id="game-board" class="game-board"></div>
+
+  <div id="status"></div>
+
+  <button id="restart-btn" style="display:none;">Restart Game</button>
+  <button id="home-btn" style="display:none;">Home Page</button>
+
+  <!-- Mode selection panel -->
+  <div id="mode-panel">
+    <h3>Select Game Mode</h3>
+    <button id="friends-btn">Friends</button>
+    <button id="computer-btn">Computer</button>
+  </div>
+
+  <!-- Settings panel -->
+  <div id="settings-panel">
+    <h3>Settings</h3>
+    <label>
+      <input type="checkbox" id="mute-checkbox" checked> Music On
+    </label>
+    <label>
+      Volume:
+      <input type="range" id="volume-slider" min="0" max="1" step="0.1" value="1">
+    </label>
+    <button id="close-settings-btn">Close</button>
+  </div>
+
+  <!-- Game tone -->
+  <audio id="game-tone" preload="auto" loop>
+    <source src="https://www.bensound.com/bensound-music/bensound-ukulele.mp3" type="audio/mpeg">
+  </audio>
+
+  <script>
+    const startBtn = document.getElementById('start-btn');
+    const settingsBtn = document.getElementById('settings-btn');
+    const board = document.getElementById('game-board');
+    const statusText = document.getElementById('status');
+    const restartBtn = document.getElementById('restart-btn');
+    const homeBtn = document.getElementById('home-btn');
+    const friendsBtn = document.getElementById('friends-btn');
+    const computerBtn = document.getElementById('computer-btn');
+    const modePanel = document.getElementById('mode-panel');
+    const gameTone = document.getElementById('game-tone');
+    const settingsPanel = document.getElementById('settings-panel');
+    const muteCheckbox = document.getElementById('mute-checkbox');
+    const volumeSlider = document.getElementById('volume-slider');
+    const closeSettingsBtn = document.getElementById('close-settings-btn');
+
+    let currentPlayer;
+    let gameActive;
+    let gameMode;
+    let audioReady = false;
+    const cells = [];
+
+    async function unlockAudio() {
+      try {
+        await gameTone.play();
+        gameTone.pause();
+        gameTone.currentTime = 0;
+        audioReady = true;
+        console.log('Audio unlocked successfully');
+      } catch (error) {
+        console.error('Failed to unlock audio:', error);
+        audioReady = false;
+      }
+    }
+
+    function updateMusicSettings() {
+      try {
+        gameTone.muted = !muteCheckbox.checked;
+        gameTone.volume = volumeSlider.value;
+      } catch (error) {
+        console.error('Error updating music settings:', error);
+      }
+    }
+
+    settingsBtn.addEventListener('click', () => {
+      settingsPanel.style.display = 'block';
+    });
+
+    closeSettingsBtn.addEventListener('click', () => {
+      settingsPanel.style.display = 'none';
+    });
+
+    muteCheckbox.addEventListener('change', updateMusicSettings);
+    volumeSlider.addEventListener('input', updateMusicSettings);
+
+    startBtn.addEventListener('click', async () => {
+      await unlockAudio();
+      modePanel.style.display = 'block';
+    });
+
+    function goToHomePage() {
+      board.style.display = 'none';
+      statusText.textContent = '';
+      restartBtn.style.display = 'none';
+      homeBtn.style.display = 'none';
+      startBtn.style.display = 'inline-block';
+      settingsBtn.style.display = 'inline-block';
+      settingsPanel.style.display = 'none';
+      modePanel.style.display = 'none';
+      cells.length = 0;
+    }
+
+    function computerMove() {
+      const emptyCells = cells.filter(cell => !cell.textContent);
+      if (emptyCells.length > 0 && gameActive) {
+        const randomIndex = Math.floor(Math.random() * emptyCells.length);
+        const cell = emptyCells[randomIndex];
+        cell.textContent = 'O';
+        checkWin();
+        if (gameActive) {
+          currentPlayer = 'X';
+          statusText.textContent = currentPlayer + "'s turn";
+        }
+      }
+    }
+
+    function createConfetti() {
+      const confettiColors = ['#00f', '#0ff', '#ff0', '#f0f', '#0f0', '#fff'];
+      for (let i = 0; i < 100; i++) {
+        const confetti = document.createElement('div');
+        confetti.classList.add('confetti');
+        confetti.style.left = Math.random() * 100 + 'vw';
+        confetti.style.backgroundColor =
+          confettiColors[Math.floor(Math.random() * confettiColors.length)];
+        confetti.style.animationDuration = 2 + Math.random() * 3 + 's';
+        confetti.style.animationDelay = Math.random() * 2 + 's';
+        const size = 5 + Math.random() * 5;
+        confetti.style.width = size + 'px';
+        confetti.style.height = size + 'px';
+        document.body.appendChild(confetti);
+
+        setTimeout(() => {
+          confetti.remove();
+        }, 5000);
+      }
+    }
+
+    function checkWin() {
+      const winPatterns = [
+        [0, 1, 2],
+        [3, 4, 5],
+        [6, 7, 8],
+        [0, 3, 6],
+        [1, 4, 7],
+        [2, 5, 8],
+        [0, 4, 8],
+        [2, 4, 6],
+      ];
+      for (let pattern of winPatterns) {
+        const [a, b, c] = pattern;
+        if (
+          cells[a].textContent &&
+          cells[a].textContent === cells[b].textContent &&
+          cells[b].textContent === cells[c].textContent
+        ) {
+          gameActive = false;
+          statusText.textContent = cells[a].textContent + ' wins!';
+          celebration();
+          return;
+        }
+      }
+      if ([...cells].every((cell) => cell.textContent)) {
+        gameActive = false;
+        statusText.textContent = "It's a draw!";
+        restartBtn.style.display = 'inline-block';
+        homeBtn.style.display = 'inline-block';
+      }
+    }
+
+    function celebration() {
+      createConfetti();
+      restartBtn.style.display = 'inline-block';
+      homeBtn.style.display = 'inline-block';
+    }
+
+    function handleClick(e) {
+      const cell = e.target;
+      if (!cell.textContent && gameActive) {
+        cell.textContent = currentPlayer;
+        checkWin();
+        if (gameActive) {
+          currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+          statusText.textContent = currentPlayer + "'s turn";
+          if (gameMode === 'computer' && currentPlayer === 'O') {
+            setTimeout(computerMove, 500);
+          }
+        }
+      }
+    }
+
+    function startGame(mode) {
+      gameMode = mode;
+      currentPlayer = 'X';
+      gameActive = true;
+      startBtn.style.display = 'none';
+      settingsBtn.style.display = 'none';
+      settingsPanel.style.display = 'none';
+      modePanel.style.display = 'none';
+      restartBtn.style.display = 'none';
+      homeBtn.style.display = 'none';
+      board.style.display = 'grid';
+      board.innerHTML = '';
+      statusText.textContent = currentPlayer + "'s turn";
+      cells.length = 0;
+
+      if (audioReady) {
+        try {
+          gameTone.muted = !muteCheckbox.checked;
+          gameTone.volume = volumeSlider.value;
+          gameTone.play().catch((error) => {
+            console.error('Audio playback failed:', error);
+          });
+        } catch (error) {
+          console.error('Error starting background music:', error);
+        }
+      } else {
+        console.warn('Audio not unlocked, proceeding without music');
+      }
+
+      for (let i = 0; i < 9; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.addEventListener('click', handleClick);
+        cells[i] = cell;
+        board.appendChild(cell);
+      }
+    }
+
+    friendsBtn.addEventListener('click', () => startGame('friends'));
+    computerBtn.addEventListener('click', () => startGame('computer'));
+
+    homeBtn.addEventListener('click', goToHomePage);
+
+    restartBtn.addEventListener('click', async () => {
+      try {
+        gameTone.pause();
+        gameTone.currentTime = 0;
+        audioReady = false;
+      } catch (error) {
+        console.error('Error stopping music:', error);
+      }
+      await unlockAudio();
+      modePanel.style.display = 'block';
+    });
+  </script>
+</body>
+</html>
